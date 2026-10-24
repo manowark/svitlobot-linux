@@ -1,0 +1,31 @@
+{
+  "interval_seconds": 50,
+  "attempts": 3,
+  "attempt_interval_ms": 700,
+  "ping_timeout_ms": 1000,
+  "min_successes": 1,
+  "down_threshold": 3,
+  "http_timeout_seconds": 15,
+  "status_log_seconds": 600,
+  "web_listen": ":8080",
+  "log_file": "",
+  "log_max_size_mb": 10,
+  "log_max_backups": 3,
+  "hosts": [
+    {
+      "name": "power-sensor",
+      "target": "192.168.1.1",
+      "type": "icmp",
+      "mode": "always",
+      "url": "https://api.svitlobot.in.ua/channelPing?channel_key=YOUR_CHANNEL_KEY"
+    },
+    {
+      "name": "nas",
+      "target": "192.168.1.50",
+      "type": "tcp",
+      "port": 445,
+      "interval_seconds": 60,
+      "url": "https://api.svitlobot.in.ua/channelPing?channel_key=YOUR_CHANNEL_KEY"
+    }
+  ]
+}

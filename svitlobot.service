@@ -1,0 +1,24 @@
+[Unit]
+Description=SvitloBot ping client (power monitoring via ping)
+Documentation=file:///usr/share/doc/svitlobot/README.md
+After=network-online.target
+Wants=network-online.target
+# Не блокуємо рестарти лімітом systemd — сервіс має жити місяцями
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/svitlobot -config /etc/svitlobot/config.json
+# Автоматичний перезапуск при будь-якому падінні
+Restart=always
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=20
+# Переконфігурація без рестарту: systemctl kill -s HUP svitlobot
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=svitlobot
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,46 @@
+services:
+  svitlobot:
+    build: .
+    image: svitlobot-client:latest
+    # Альтернатива: готовий образ з GHCR (після першого прогону Actions)
+    # image: ghcr.io/<ваш-логін>/svitlobot:latest
+    # build: .            # тоді білд не потрібен
+    container_name: svitlobot
+    restart: unless-stopped
+    # CAP_NET_RAW потрібен для ICMP raw-сокета (type: icmp).
+    # Якщо всі хости в конфігу type: tcp — можна прибрати.
+    cap_add:
+      - NET_RAW
+    # Мінімум привілеїв: все зайве викидаємо.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      # локальний час у логах і на статус-сторінці
+      TZ: Europe/Kyiv
+    # Конфіг з channel_key — тільки через volume, він ніколи не копіюється в образ
+    volumes:
+      - ./config.json:/etc/svitlobot/config.json:ro
+      # опційно: файл-лог з ротацією (якщо в конфігу "log_file": "/var/log/svitlobot/svitlobot.log")
+      # - ./logs:/var/log/svitlobot
+    ports:
+      # статус-сторінка (web_listen: ":8080"). Якщо вимкнена або
+      # використовуєте network_mode: host — приберіть цей блок.
+      - "8080:8080"
+    # docker stop / compose stop шле SIGTERM — клієнт завершується чисто
+    stop_grace_period: 20s
+    # лог контейнера теж не повинен рости нескінченно
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Хелсчек: тільки якщо статус-сторінка ввімкнена на :8080.
+    # Якщо вимкнули сторінку — закоментуйте весь блок healthcheck.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -T 3 -O /dev/null http://127.0.0.1:8080/api/state || exit 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

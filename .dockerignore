@@ -1,0 +1,13 @@
+# локальні речі, які не мають потрапити в образ
+build/
+svitlobot
+*.log
+# реальний конфіг з channel_key ніколи не копіюється в образ —
+# монтується через volumes
+config.json
+.git/
+.gitignore
+README.md
+svitlobot.service
+Makefile
+docker-compose.yml

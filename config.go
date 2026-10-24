@@ -64,7 +64,7 @@ func loadConfig(path string) (*Config, error) {
 // resolveConfig застосовує значення за замовчуванням і валідує конфіг.
 func resolveConfig(cfg *Config) error {
 	if cfg.IntervalSeconds <= 0 {
-		// ESP32-прошивка шле серцебиття кожні 50 с — та сама логіка тут
+		// дефолт: серцебиття кожні 50 с
 		cfg.IntervalSeconds = 50
 	}
 	if cfg.Attempts <= 0 {

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// WebServer — статус-сторінка в стилі ESP32-прошивки:
+// WebServer — статус-сторінка:
 //
 //	GET /          — HTML-сторінка стану (автооновлення)
 //	GET /api/state — JSON зі станом (як /api/state у прошивці)

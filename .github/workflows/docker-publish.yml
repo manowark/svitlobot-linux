@@ -1,9 +1,11 @@
 # Авто-збірка і публікація Docker-образу в GHCR.
 #
 # Тригери:
-#   - push у main            → тег ghcr.io/<owner>/svitlobot:main (+ :latest)
-#   - push тегу v1.2.3       → теги :1.2.3, :1.2, :1
+#   - push у main            → тільки go vet + go test (CI-гард)
+#   - push тегу v1.2.3       → збірка і публікація образу в GHCR
+#                              теги: latest, 1.2.3, 1.2, 1
 #   - керування вручну       → Actions → docker-publish → Run workflow
+#                              (тільки тести; образ — лише з тегу)
 #
 # Мульти-арх без QEMU: Dockerfile крос-компілює Go на платформі білдера
 # (BUILDPLATFORM/TARGETARCH, CGO вимкнено), тож linux/arm64 (Raspberry Pi 5)
@@ -45,17 +47,14 @@ jobs:
   publish:
     name: build & push image
     needs: test
+    # образ публікується тільки при пуші тегу v*
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set VERSION from ref
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-          else
-            echo "VERSION=0.0.0-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
-          fi
+      - name: Set VERSION from tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -73,12 +72,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=branch
+            type=raw,value=latest
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha,format=short
 
       - name: Build and push (amd64 + arm64)
         uses: docker/build-push-action@v6

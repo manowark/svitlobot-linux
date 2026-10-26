@@ -10,7 +10,10 @@ import (
 	"syscall"
 )
 
-const version = "1.0.0"
+// version — за замовчуванням "dev"; одинира білд-системи (Makefile,
+// Dockerfile з ARG VERSION, GitHub Actions) інжектить фактичну версію через
+// -ldflags "-X main.version=<тег релізу>".
+var version = "dev"
 
 func main() {
 	showVer := flag.Bool("version", false, "print version and exit")

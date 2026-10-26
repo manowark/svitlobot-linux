@@ -127,6 +127,10 @@ docker run -d --name svitlobot --restart unless-stopped \
 Теги: `latest` — кожен push у `main`; `1.2.3` / `1.2` / `1` — пуш тегу
 `v1.2.3`; `sha-abcdef` — точний коміт.
 
+Версія фактична у бінарнику: тег релізу передається у білд
+(`-X main.version`), тому статус-сторінка і `svitlobot --version` показують
+реальну версію; образи з `main` мають версію `0.0.0-<sha коміту>`.
+
 ### systemd (LXC або звичайний Linux)
 
 ```bash

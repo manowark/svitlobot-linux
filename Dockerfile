@@ -8,11 +8,14 @@
 FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS build
 ARG TARGETOS
 ARG TARGETARCH
+# VERSION — тег релізу, передається з GitHub Actions (build-args) або
+# локально: docker build --build-arg VERSION=1.2.3 .
+ARG VERSION=dev
 WORKDIR /src
 COPY go.mod ./
 COPY *.go ./
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
-    -ldflags "-s -w" \
+    -ldflags "-s -w -X main.version=${VERSION}" \
     -o /out/svitlobot .
 
 # ---------- runtime ----------

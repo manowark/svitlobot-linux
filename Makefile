@@ -1,5 +1,7 @@
 BINARY := svitlobot
-VERSION ?= 1.0.0
+# Версія береться з git-тегу (пріоритет), потім коміт; інжектиться у бінарник
+# через -X main.version — тому в main.go version має бути var, не const.
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -trimpath -ldflags "-s -w -X main.version=$(VERSION)"
 
 .PHONY: build linux linux-arm64 docker docker-arm64 test clean

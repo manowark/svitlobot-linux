@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# зібрані бінарники
+svitlobot
+build/
+*.o
+
+# реальний конфіг з channel_key — ніколи не коммітиться
+config.json
+
+# логи
+*.log
+*.log.[0-9]

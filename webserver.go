@@ -153,7 +153,7 @@ const indexHTML = `<!doctype html>
     min-height:100vh;
     -webkit-font-smoothing:antialiased;
   }
-  .wrap{max-width:1060px;margin:0 auto;padding:36px 22px 50px}
+  .wrap{max-width:100%;padding:28px 30px 48px}
 
   /* ---------- header ---------- */
   header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:22px}
@@ -163,9 +163,15 @@ const indexHTML = `<!doctype html>
   @keyframes pulse{0%{box-shadow:0 0 0 0 currentColor;opacity:1}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
   h1{font-size:1.05rem;font-weight:700;margin:0;letter-spacing:.2px;white-space:nowrap}
   .spacer{flex:1}
-  .Btnchip{background:var(--surface);border:1px solid var(--border);color:var(--dim);
-           padding:6px 14px;border-radius:999px;font-size:.78rem;font-weight:600;cursor:pointer}
-  .Btnchip:hover{color:var(--tx);border-color:var(--border)}
+  /* --- theme switch: сегментні інконки sun/moon --- */
+  .seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--border);
+       border-radius:999px;padding:3px;gap:2px;flex:none}
+  .seg button{border:0;background:transparent;color:var(--faint);width:34px;height:28px;
+              border-radius:999px;cursor:pointer;font-size:1rem;line-height:1;
+              display:flex;align-items:center;justify-content:center;
+              transition:color .15s ease,background .15s ease}
+  .seg button:hover{color:var(--tx)}
+  .seg button.on{background:var(--surface);color:var(--tx);box-shadow:0 1px 5px rgba(0,0,0,.2)}
   .chips{display:flex;gap:7px;flex-wrap:wrap}
   .chip{background:var(--surface-2);border:1px solid var(--border);color:var(--dim);
         padding:5px 13px;border-radius:999px;font-size:.76rem;white-space:nowrap}
@@ -180,21 +186,21 @@ const indexHTML = `<!doctype html>
   .pill i.up{background:var(--up)} .pill i.warn{background:var(--warn)} .pill i.down{background:var(--down)}
 
   /* ---------- single-host hero ---------- */
-  .hero{position:relative;border:1px solid var(--border);border-radius:20px;background:var(--surface);
-        box-shadow:var(--shadow);padding:26px 28px 24px;overflow:hidden}
+  .hero{position:relative;border:1px solid var(--border);border-radius:24px;background:var(--surface);
+        box-shadow:var(--shadow);padding:30px 36px 28px;overflow:hidden;width:100%}
   .hero.up::after, .hero.grace::after, .hero.down::after{
     content:"";position:absolute;inset:0;pointer-events:none;opacity:.9;
   }
   .hero.up{background-image:linear-gradient(160deg,var(--up-tint),transparent 46%),var(--surface)}
   .hero.grace{background-image:linear-gradient(160deg,var(--warn-tint),transparent 46%),var(--surface)}
   .hero.down{background-image:linear-gradient(160deg,var(--down-tint),transparent 46%),var(--surface)}
-  .status-line{display:flex;align-items:center;gap:11px;margin-bottom:6px}
-  .sdot{width:12px;height:12px;border-radius:50%;flex:none}
+  .status-line{display:flex;align-items:center;gap:13px;margin-bottom:8px}
+  .sdot{width:14px;height:14px;border-radius:50%;flex:none}
   .hero.up .sdot{background:var(--up);box-shadow:0 0 12px var(--up)}
   .hero.grace .sdot{background:var(--warn);box-shadow:0 0 12px var(--warn);animation:blink 1.8s ease-in-out infinite}
   .hero.down .sdot{background:var(--down);box-shadow:0 0 12px var(--down)}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
-  .status-line h2{font-size:1.55rem;font-weight:750;margin:0;letter-spacing:-.3px}
+  .status-line h2{font-size:2rem;font-weight:780;margin:0;letter-spacing:-.5px}
   .hero.up .status-line h2{color:var(--up)}
   .hero.grace .status-line h2{color:var(--warn)}
   .hero.down .status-line h2{color:var(--down)}
@@ -203,15 +209,15 @@ const indexHTML = `<!doctype html>
               background:var(--surface-2);border:1px solid var(--border);padding:2px 8px;border-radius:7px}
   .tline .warn{color:var(--warn)}
   .note{font-size:.8rem;color:var(--faint);margin-top:12px}
-  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-  .tile{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;min-width:0}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px}
+  .tile{background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:12px 18px;min-width:0}
   .tile .k{color:var(--faint);font-size:.64rem;text-transform:uppercase;letter-spacing:1.1px;margin-bottom:3px}
-  .tile .v{font-size:.9rem;font-weight:650;font-variant-numeric:tabular-nums;word-break:break-all;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tile .v{font-size:1.15rem;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .tile .v .ok{color:var(--up)} .tile .v .err{color:var(--down)} .tile .v .warn{color:var(--warn)}
   @media (max-width:640px){.tiles{grid-template-columns:repeat(2,1fr)}}
 
   /* ---------- host cards (multi) ---------- */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;margin-top:8px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(390px,1fr));gap:14px;margin-top:8px}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px 14px;
         box-shadow:var(--shadow);transition:transform .18s ease;border-left:none}
   .card:hover{transform:translateY(-2px)}
@@ -247,7 +253,10 @@ const indexHTML = `<!doctype html>
     <span class="logo"></span>
     <h1>svitlobot</h1>
     <span class="spacer"></span>
-    <button class="Btnchip" id="themeBtn" type="button"></button>
+    <div class="seg" id="themeSeg" role="group" aria-label="Color theme">
+      <button type="button" data-t="light" aria-label="Light theme" title="Light theme">&#9728;</button>
+      <button type="button" data-t="dark" aria-label="Dark theme" title="Dark theme">&#9789;</button>
+    </div>
     <div class="chips" id="chips"></div>
   </header>
 
@@ -329,10 +338,13 @@ function statusHTML(h){
 }
 
 // ---- theme ----
-var themeBtn=document.getElementById("themeBtn");
+var seg=document.getElementById("themeSeg");
+var segBtns=seg.querySelectorAll("button");
 function applyTheme(t){
   document.documentElement.setAttribute("data-theme",t);
-  themeBtn.textContent=(t==="dark"?"Light":"Dark");
+  for(var i=0;i<segBtns.length;i++){
+    segBtns[i].classList.toggle("on",segBtns[i].getAttribute("data-t")===t);
+  }
   try{localStorage.setItem("sb-theme",t);}catch(e){}
 }
 var savedTheme=null;
@@ -342,9 +354,9 @@ if(savedTheme!=="dark"&&savedTheme!=="light"){
     ?"light":"dark";
 }
 applyTheme(savedTheme);
-themeBtn.onclick=function(){
-  applyTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark");
-};
+for(var i=0;i<segBtns.length;i++){
+  segBtns[i].onclick=function(){applyTheme(this.getAttribute("data-t"));};
+}
 
 function renderState(g){
   var hosts=g.hosts||[];
@@ -361,8 +373,9 @@ function renderState(g){
   var single=hosts.length===1;
   var box=document.getElementById("hosts");
   var sum=document.getElementById("summary");
+  // hero (single host) живе поза grid: карточка на всю ширину; multi — grid
+  box.className=single?"":"grid";
   sum.style.display="flex";
-  document.body.classList.toggle("single",single);
   if(single){
     sum.style.display="none";
     renderHero(hosts[0]);

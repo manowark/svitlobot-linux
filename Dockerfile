@@ -13,7 +13,10 @@ ARG TARGETARCH
 ARG VERSION=dev
 WORKDIR /src
 COPY go.mod ./
-COPY *.go ./
+# явний перелік без *_test.go: в образ не мають потрапляти
+# тестові файли (порожній пакет тестів ломав би Sentra-скани).
+# При добавленні нового .go-файлу не забудьте дописати і сюди.
+COPY main.go config.go logger.go manager.go notifier.go ping.go runner.go webserver.go ./
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
     -ldflags "-s -w -X main.version=${VERSION}" \
     -o /out/svitlobot .

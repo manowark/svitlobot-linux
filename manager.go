@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"reflect"
 	"sort"
@@ -17,6 +18,7 @@ type Manager struct {
 	mu        sync.Mutex
 	ctx       context.Context
 	httpTO    int
+	dialer    *resilientDialer
 	client    *http.Client
 	runners   map[string]*runner
 	cancels   map[string]context.CancelFunc
@@ -26,8 +28,12 @@ type Manager struct {
 }
 
 func newManager(cfg *Config, log *Logger) *Manager {
+	// dialer спільний на все життя процесу: кеш IP переживає hot-reload
+	// клієнта при зміні http_timeout_seconds.
+	dl := newResilientDialer(log)
 	m := &Manager{
 		log:       log,
+		dialer:    dl,
 		runners:   map[string]*runner{},
 		cancels:   map[string]context.CancelFunc{},
 		startedAt: time.Now(),
@@ -37,8 +43,76 @@ func newManager(cfg *Config, log *Logger) *Manager {
 	return m
 }
 
+// resilientDialer — обгортка навколо net.Dialer, стійка до зависання
+// системного/Docker-резолвера (127.0.0.11 у контейнерах вміє заклинювати,
+// коли зовнішній DNS недоступний — ретраї тоді не допомагають, бо кожен
+// знову проходить змоглий резолвер).
+//
+// Стратегія: успішний dial запам'ятовує останній робочий IP хоста; коли
+// звичайний dial провалився (DNS або конект), робиться друга спроба
+// напряму на запам'ятований IP. TLS SNI і валідація сертифіката лишаються
+// по hostname незалежно від того, куди йде TCP — це поведінка http.Transport.
+type resilientDialer struct {
+	log  *Logger
+	mu   sync.Mutex
+	good map[string]string // hostname -> ip
+}
+
+func newResilientDialer(log *Logger) *resilientDialer {
+	return &resilientDialer{log: log, good: map[string]string{}}
+}
+
+func (d *resilientDialer) remember(host string, conn net.Conn) {
+	if ra := conn.RemoteAddr(); ra != nil {
+		if host_, _, err := net.SplitHostPort(ra.String()); err == nil && net.ParseIP(host_) != nil {
+			d.mu.Lock()
+			d.good[host] = host_
+			d.mu.Unlock()
+		}
+	}
+}
+
+func (d *resilientDialer) cached(host string) string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.good[host]
+}
+
+func (d *resilientDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil || net.ParseIP(host) != nil {
+		return (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext(ctx, network, address)
+	}
+	nd := &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}
+	conn, derr := nd.DialContext(ctx, network, address)
+	if derr == nil {
+		d.remember(host, conn)
+		return conn, nil
+	}
+	if ctx.Err() != nil {
+		return nil, derr // процес стопається — не обходимо проблему
+	}
+	if ip := d.cached(host); ip != "" {
+		d.log.Warnf("dial: DNS/connect to %q failed (%v), trying cached IP %s", host, derr, ip)
+		if conn2, err2 := nd.DialContext(ctx, network, net.JoinHostPort(ip, port)); err2 == nil {
+			return conn2, nil
+		}
+	}
+	return nil, derr
+}
+
 func (m *Manager) newClient(to int) *http.Client {
-	return &http.Client{Timeout: time.Duration(to) * time.Second}
+	tr := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           m.dialer.DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          20,
+		MaxIdleConnsPerHost:   2,
+		IdleConnTimeout:       70 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	return &http.Client{Timeout: time.Duration(to) * time.Second, Transport: tr}
 }
 
 func (m *Manager) getHTTPClient() *http.Client {

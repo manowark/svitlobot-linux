@@ -65,6 +65,10 @@ func (w *rotatingWriter) open() error {
 func (w *rotatingWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.f == nil {
+		// з rotten-файлу не падаємо: лог це не критичний шлях
+		return 0, fmt.Errorf("log file %q unavailable", w.path)
+	}
 	if st, err := w.f.Stat(); err == nil && st.Size()+int64(len(p)) > w.max {
 		w.rotate()
 	}

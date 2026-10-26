@@ -43,7 +43,6 @@ type runner struct {
 	lastNotifyErr  string
 	lastStatusAt   time.Time
 	lastNotifyLog  string
-	restartsSoFar  int
 }
 
 func newRunner(m *Manager, h *HostConfig) *runner {
@@ -83,42 +82,40 @@ func (r *runner) run(ctx context.Context) {
 	}
 }
 
+// pingResetAfterFails — скільки циклів підряв невдалих пінгів вважати
+// підозрою на завислик сокет/резольвер; після цього ICMP-клиента скидається.
+const pingResetAfterFails = 3
+
 func (r *runner) cycle(ctx context.Context, cfg *HostConfig) {
 	succ := r.burst(ctx, cfg)
 	now := time.Now()
+	okBurst := succ >= cfg.MinSuccesses
 
+	// Оновлення стану в межах одного локу: знімок для сторінки стежиться
+	// консистентним, а лог-рядки нижче не тримають mu.
 	r.mu.Lock()
 	r.lastPingAt = now
 	r.lastBurstOk = succ
-	if succ >= cfg.MinSuccesses {
-		r.lastOkTime = now
-	}
-	r.mu.Unlock()
-
-	// анти-флап: хост вважається зниклим тільки після
-	// down_threshold цілком невдалих берстів поспіль
-	okBurst := succ >= cfg.MinSuccesses
 	if okBurst {
-		r.mu.Lock()
+		r.lastOkTime = now
 		r.failBursts = 0
-		r.lastErr = ""
-		r.mu.Unlock()
+		r.lastErr = "" // успіх скидає "орудну" помилку без спаму у лог
 	} else {
-		r.mu.Lock()
 		r.failBursts++
-		th := r.failBursts
-		r.mu.Unlock()
-		if th >= 3 {
-			// кілька циклів поспіль безуспішно — скидаємо сокет/DNS-кеш
-			r.resetPinger()
-		}
 	}
+	failBursts := r.failBursts
 
-	r.mu.Lock()
-	grace := !okBurst && r.up && r.failBursts < cfg.DownThreshold
+	// анти-флап: перша невдала перевірка ще не означає "IP зник" —
+	// grace тримає хост UP (і серцебиття живим) ще down_threshold-1 циклів
+	grace := !okBurst && r.up && failBursts < cfg.DownThreshold
 	up := okBurst || grace
 	prev := r.up
 	r.up = up
+
+	statusDue := time.Since(r.lastStatusAt) >= time.Duration(cfg.StatusLogSeconds)*time.Second
+	if statusDue {
+		r.lastStatusAt = now
+	}
 	r.mu.Unlock()
 
 	switch {
@@ -126,20 +123,13 @@ func (r *runner) cycle(ctx context.Context, cfg *HostConfig) {
 		r.log.Infof("host %q is UP (%d/%d pings ok)", r.name, succ, cfg.Attempts)
 	case up != prev && !up:
 		r.log.Warnf("host %q is DOWN (no successful burst for %d cycles, down_threshold=%d)",
-			r.name, r.failSnapshot(), cfg.DownThreshold)
+			r.name, failBursts, cfg.DownThreshold)
 	case grace && prev:
-		r.log.Infof("status: host %q %d/%d pings ok, still UP due to down_threshold (failed %d/%d)",
-			r.name, succ, cfg.Attempts, r.failSnapshot(), cfg.DownThreshold)
+		r.log.Infof("host %q %d/%d pings ok, still UP due to down_threshold (failed %d/%d)",
+			r.name, succ, cfg.Attempts, failBursts, cfg.DownThreshold)
 	}
 
-	// статусний рядок, щоб бачити, що процес живий
-	r.mu.Lock()
-	doStatus := time.Since(r.lastStatusAt) >= time.Duration(cfg.StatusLogSeconds)*time.Second
-	if doStatus {
-		r.lastStatusAt = now
-	}
-	r.mu.Unlock()
-	if doStatus {
+	if statusDue {
 		state := "DOWN"
 		if grace {
 			state = "UP(grace)"
@@ -149,28 +139,15 @@ func (r *runner) cycle(ctx context.Context, cfg *HostConfig) {
 		r.log.Infof("status: host %q %d/%d pings ok, state=%s", r.name, succ, cfg.Attempts, state)
 	}
 
-	if !up {
-		return
+	// декілька циклів підряв безуспішно — ймовірні зачепок сокет/DNS-кеш,
+	// пинговер скидається (він пере-створиться наступним пінгом)
+	if failBursts >= pingResetAfterFails {
+		r.resetPinger()
 	}
 
-	need := false
-	switch {
-	case r.pendingSnap():
-		need = true // попередня доставка не пройшла — ретраїмо
-	case !prev:
-		need = true // щойно став UP — ключова подія
-	case cfg.Mode == "always":
-		need = true // серцебиття
-	}
-	if need && cfg.URL != "" {
+	if up && cfg.URL != "" && (r.pendingSnap() || !prev || cfg.Mode == "always") {
 		r.deliver(ctx, cfg)
 	}
-}
-
-func (r *runner) failSnapshot() int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.failBursts
 }
 
 func (r *runner) pendingSnap() bool {

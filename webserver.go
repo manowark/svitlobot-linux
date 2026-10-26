@@ -94,6 +94,7 @@ func (w *WebServer) handleState(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	rw.Header().Set("Content-Type", "application/json")
+	rw.Header().Set("Cache-Control", "no-store")
 	_, _ = rw.Write(data)
 }
 

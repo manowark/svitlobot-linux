@@ -46,7 +46,7 @@ func newICMPClient(log *Logger, name string) *icmpClient {
 		id:   uint16(os.Getpid()),
 		fam:  4,
 	}
-	c.binPath, _ = findPing()
+	c.binPath = findPing()
 	return c
 }
 
@@ -58,7 +58,7 @@ func (c *icmpClient) ping(ctx context.Context, host string, timeout time.Duratio
 		return c.binPing(ctx, host, timeout)
 	}
 	if c.conn == nil {
-		if err := c.open(host); err != nil {
+		if err := c.open(ctx, host); err != nil {
 			if c.binPath != "" {
 				c.log.Warnf("host %s: raw ICMP unavailable (%v), falling back to system ping %q", c.name, err, c.binPath)
 				c.useBin = true
@@ -70,17 +70,21 @@ func (c *icmpClient) ping(ctx context.Context, host string, timeout time.Duratio
 	return c.rawPing(host, timeout)
 }
 
-func (c *icmpClient) open(host string) error {
-	ip, fam, err := resolveIP(host)
+func (c *icmpClient) open(ctx context.Context, host string) error {
+	ip, fam, err := resolveIP(ctx, host)
 	if err != nil {
 		return err
 	}
 	network := "ip4:icmp"
 	if fam == 6 {
+		// Примітка: для raw IPv6-сокетів ядра без IPV6_CHECKSUM ICMPv6
+		// контрольна сума з псевдозаголовком тут не рахується повністю
+		// (диапазонна поведінка Linux); для IPv6-таргетів надійніше
+		// системний ping (fallback).
 		network = "ip6:icmp"
 	}
-	var d net.Dialer
-	conn, err := d.Dial(network, ip.String())
+	d := net.Dialer{Timeout: 5 * time.Second}
+	conn, err := d.DialContext(ctx, network, ip.String())
 	if err != nil {
 		return fmt.Errorf("open %s socket: %w", network, err)
 	}
@@ -194,9 +198,8 @@ func (c *icmpClient) binPing(ctx context.Context, host string, timeout time.Dura
 // tcpPing — альтернатива для хостів, де ICMP закритий/недоступний:
 // успіх = TCP-з'єднання встановилось.
 func tcpPing(ctx context.Context, host string, port int, timeout time.Duration) error {
+	d := net.Dialer{Timeout: timeout}
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
-	var d net.Dialer
-	d.Timeout = timeout
 	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err == nil {
 		conn.Close()
@@ -204,38 +207,39 @@ func tcpPing(ctx context.Context, host string, port int, timeout time.Duration) 
 	return err
 }
 
-func resolveIP(host string) (net.IP, int, error) {
+func resolveIP(ctx context.Context, host string) (net.IP, int, error) {
 	if ip := net.ParseIP(host); ip != nil {
 		if ip.To4() != nil {
 			return ip, 4, nil
 		}
 		return ip, 6, nil
 	}
-	ips, err := net.LookupIP(host)
+	addrs, err := (&net.Resolver{}).LookupIPAddr(ctx, host)
 	if err != nil {
 		return nil, 0, fmt.Errorf("resolve %s: %w", host, err)
 	}
-	if len(ips) == 0 {
+	if len(addrs) == 0 {
 		return nil, 0, fmt.Errorf("resolve %s: no addresses", host)
 	}
-	for _, ip := range ips {
-		if ip.To4() != nil {
-			return ip, 4, nil
+	for _, a := range addrs {
+		if a.IP.To4() != nil {
+			return a.IP, 4, nil
 		}
 	}
-	return ips[0], 6, nil
+	return addrs[0].IP, 6, nil
 }
 
-func findPing() (string, bool) {
+// findPing повертає шлях до системної утиліти ping або "".
+func findPing() string {
 	if path, err := exec.LookPath("ping"); err == nil {
-		return path, true
+		return path
 	}
 	for _, p := range []string{"/bin/ping", "/usr/bin/ping", "/sbin/ping", "/usr/sbin/ping"} {
 		if st, err := os.Stat(p); err == nil && !st.IsDir() {
-			return p, true
+			return p
 		}
 	}
-	return "", false
+	return ""
 }
 
 func isPermission(err error) bool {

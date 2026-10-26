@@ -83,6 +83,9 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
+          # без provenance/SBOM-атестацій: інакше GHCR показує
+          # фантомні архітектури unknown/unknown у списку тегів
+          provenance: false
           build-args: |
             VERSION=${{ env.VERSION }}
           tags: ${{ steps.meta.outputs.tags }}

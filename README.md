@@ -105,12 +105,20 @@ docker compose logs -f svitlobot
 
 ### Готовий образ з GitHub (без білду)
 
-Workflow `.github/workflows/docker-publish.yml` на кожен push у `main` і тег
-`vX.Y.Z` сам публікує мульти-арх образ (`amd64` + `arm64`) у GHCR. Спрацює
-одразу після пуша репозиторію, секрети не потрібні.
+Workflow `.github/workflows/docker-publish.yml` публікує мульти-арх образ
+(`amd64` + `arm64`) у GHCR **тільки при пуші тегу релізу**:
 
-Після першого прогону зробіть пакет публічним: GitHub → Packages →
-`svitlobot` → Package settings → Change visibility → Public. Далі:
+- push у `main` → тільки `go vet` + `go test` (CI-гард, без білда образу);
+- push тегу `v1.2.3` → збірка і публікація `latest`, `1.2.3`, `1.2`, `1`.
+
+Тому релізи користувачам виходять саме через тег:
+
+```bash
+git tag v1.2.3 && git push origin v1.2.3
+```
+
+Секрети не потрібні. Після першого прогону зробіть пакет публічним: GitHub →
+Packages → `svitlobot` → Package settings → Change visibility → Public. Далі:
 
 ```bash
 docker run -d --name svitlobot --restart unless-stopped \
@@ -124,12 +132,9 @@ docker run -d --name svitlobot --restart unless-stopped \
 Або у `docker-compose.yml`: замінити `build: .` на
 `image: ghcr.io/<ваш-логін>/svitlobot:latest` — далі як вище.
 
-Теги: `latest` — кожен push у `main`; `1.2.3` / `1.2` / `1` — пуш тегу
-`v1.2.3`; `sha-abcdef` — точний коміт.
-
-Версія фактична у бінарнику: тег релізу передається у білд
-(`-X main.version`), тому статус-сторінка і `svitlobot --version` показують
-реальну версію; образи з `main` мають версію `0.0.0-<sha коміту>`.
+Теги образу: `latest` — найсвіжіший реліз; `1.2.3` / `1.2` / `1` — тег
+`v1.2.3`. Версія тега інжектиться у бінарник (`-X main.version`), тож
+статус-сторінка і `svitlobot --version` показують реальний номер релізу.
 
 ### systemd (LXC або звичайний Linux)
 
